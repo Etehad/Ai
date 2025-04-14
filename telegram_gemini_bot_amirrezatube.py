@@ -5,8 +5,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Configuration
-TELEGRAM_TOKEN = "TELEGRAM_TOKEN"  # Replace with your BotFather token
-GEMINI_API_KEY = "GEMINI_API_KEY"  # Replace with your Gemini API key
+TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"  # Replace with your BotFather token
+GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"  # Replace with your Gemini API key
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
