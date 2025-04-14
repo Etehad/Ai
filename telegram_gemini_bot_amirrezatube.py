@@ -47,18 +47,16 @@ def get_gemini_response(prompt: str) -> str:
         return f"خطا در دریافت پاسخ: {str(e)}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle incoming messages with logic for groups and private chats."""
     message = update.message
     chat_type = message.chat.type
     text = message.text.strip()
 
     if chat_type in ["group", "supergroup"]:
-        # فقط پیام‌هایی که با / شروع می‌شن در گروه بررسی بشن
         if text.startswith("/"):
-            response = get_gemini_response(text)
+            prompt = text[1:]  # حذف کاراکتر اول /
+            response = get_gemini_response(prompt)
             await message.reply_text(response)
     elif chat_type == "private":
-        # اگر پیام /start بود، فقط پیام راهنما بده
         if text == "/start":
             await message.reply_text("سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید.")
         else:
