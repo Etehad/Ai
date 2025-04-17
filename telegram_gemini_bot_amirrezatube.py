@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import requests
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -86,6 +87,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"خطا در پردازش پیام: {str(e)}")
         await message.reply_text("متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید.")
 
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """مدیریت خطاهای عمومی"""
+    logger.error(f"خطا در پردازش به‌روزرسانی: {context.error}")
+    if update and update.effective_message:
+        await update.effective_message.reply_text(
+            "متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید."
+        )
+
 def main():
     """راه‌اندازی ربات"""
     application = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -97,8 +106,23 @@ def main():
     # Message handler
     application.add_handler(MessageHandler(filters.TEXT, handle_message))
 
+    # Error handler
+    application.add_error_handler(error_handler)
+
     logger.info("Bot is running...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    
+    # اجرای ربات با مکانیزم‌های بهبود پایداری
+    while True:
+        try:
+            application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,
+                close_loop=False
+            )
+        except Exception as e:
+            logger.error(f"خطا در اجرای ربات: {str(e)}")
+            logger.info("تلاش مجدد در 5 ثانیه...")
+            asyncio.sleep(5)
 
 if __name__ == '__main__':
     main()
