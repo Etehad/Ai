@@ -1,29 +1,60 @@
 import os
 import json
+import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from flask import Flask, request, jsonify
+
+# تنظیمات لاگینگ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"  # Replace with your BotFather token
-GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"  # Replace with your Gemini API key
+TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"
+GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+PORT = int(os.environ.get('PORT', 5000))
+
+app = Flask(__name__)
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Endpoint برای بررسی وضعیت ربات"""
+    return jsonify({"status": "healthy"}), 200
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Endpoint برای دریافت webhook از تلگرام"""
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        application.process_update(update)
+    return 'ok', 200
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Respond to /start command in private chat with a help message."""
-    if update.message.chat.type == "private":
-        await update.message.reply_text(
-            "سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید."
-        )
+    """پاسخ به دستور /start در چت خصوصی"""
+    try:
+        if update.message.chat.type == "private":
+            await update.message.reply_text(
+                "سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید."
+            )
+    except Exception as e:
+        logger.error(f"خطا در دستور start: {str(e)}")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a help message."""
-    await update.message.reply_text(
-        "🤖 من با هوش مصنوعی Gemini کار می‌کنم. فقط پیام بده تا جوابت رو بدم!"
-    )
+    """ارسال پیام راهنما"""
+    try:
+        await update.message.reply_text(
+            "🤖 من با هوش مصنوعی Gemini کار می‌کنم. فقط پیام بده تا جوابت رو بدم!"
+        )
+    except Exception as e:
+        logger.error(f"خطا در دستور help: {str(e)}")
 
 def get_gemini_response(prompt: str) -> str:
-    """Get response from Gemini AI API."""
+    """دریافت پاسخ از Gemini AI API"""
     headers = {'Content-Type': 'application/json'}
     data = {
         "contents": [{
@@ -35,7 +66,8 @@ def get_gemini_response(prompt: str) -> str:
         response = requests.post(
             f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
             headers=headers,
-            json=data
+            json=data,
+            timeout=30
         )
         response.raise_for_status()
         result = response.json()
@@ -43,28 +75,37 @@ def get_gemini_response(prompt: str) -> str:
         if 'candidates' in result and len(result['candidates']) > 0:
             return result['candidates'][0]['content']['parts'][0]['text']
         return "متأسفم، نتونستم پاسخ مناسبی پیدا کنم."
+    except requests.exceptions.Timeout:
+        logger.error("Timeout در ارتباط با Gemini API")
+        return "متأسفانه در حال حاضر سرور پاسخگو نیست. لطفاً کمی بعد دوباره تلاش کنید."
     except Exception as e:
-        return f"خطا در دریافت پاسخ: {str(e)}"
+        logger.error(f"خطا در دریافت پاسخ از Gemini: {str(e)}")
+        return "متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید."
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-    chat_type = message.chat.type
-    text = message.text.strip()
+    try:
+        message = update.message
+        chat_type = message.chat.type
+        text = message.text.strip()
 
-    if chat_type in ["group", "supergroup"]:
-        if text.startswith("/"):
-            prompt = text[1:]  # حذف کاراکتر اول /
-            response = get_gemini_response(prompt)
-            await message.reply_text(response)
-    elif chat_type == "private":
-        if text == "/start":
-            await message.reply_text("سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید.")
-        else:
-            response = get_gemini_response(text)
-            await message.reply_text(response)
+        if chat_type in ["group", "supergroup"]:
+            if text.startswith("/"):
+                prompt = text[1:]
+                response = get_gemini_response(prompt)
+                await message.reply_text(response)
+        elif chat_type == "private":
+            if text == "/start":
+                await message.reply_text("سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید.")
+            else:
+                response = get_gemini_response(text)
+                await message.reply_text(response)
+    except Exception as e:
+        logger.error(f"خطا در پردازش پیام: {str(e)}")
+        await message.reply_text("متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید.")
 
 def main():
-    """Start the bot."""
+    """راه‌اندازی ربات"""
+    global application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Command handlers
@@ -74,8 +115,11 @@ def main():
     # Message handler
     application.add_handler(MessageHandler(filters.TEXT, handle_message))
 
-    print("Bot is running...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # تنظیم webhook
+    application.bot.set_webhook(url=f'https://{os.environ.get("RENDER_EXTERNAL_HOSTNAME")}/webhook')
+
+    logger.info("Bot is running...")
+    app.run(host='0.0.0.0', port=PORT)
 
 if __name__ == '__main__':
     main()
