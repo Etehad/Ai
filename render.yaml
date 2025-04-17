@@ -2,11 +2,13 @@ services:
   - type: web
     name: telegram-gemini-bot
     env: python
-    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python telegram_gemini_bot_amirrezatube.py
+    startCommand: gunicorn telegram_gemini_bot_amirrezatube:app
+    healthCheckPath: /health
+    autoDeploy: true
+    plan: free
     envVars:
-      - key: TELEGRAM_TOKEN
-        value: your_telegram_token_here
-      - key: GEMINI_API_KEY
-        value: your_gemini_api_key_here
+      - key: PORT
+        value: 10000
+      - key: PYTHONUNBUFFERED
+        value: 1
