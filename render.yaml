@@ -3,7 +3,7 @@ services:
     name: telegram-gemini-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn telegram_gemini_bot_amirrezatube:app
+    startCommand: python telegram_gemini_bot_amirrezatube.py
     healthCheckPath: /health
     autoDeploy: true
     plan: free
