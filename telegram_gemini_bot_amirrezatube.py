@@ -4,7 +4,6 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from flask import Flask, request, jsonify
 
 # تنظیمات لاگینگ
 logging.basicConfig(
@@ -17,22 +16,6 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"
 GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-PORT = int(os.environ.get('PORT', 5000))
-
-app = Flask(__name__)
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Endpoint برای بررسی وضعیت ربات"""
-    return jsonify({"status": "healthy"}), 200
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    """Endpoint برای دریافت webhook از تلگرام"""
-    if request.method == "POST":
-        update = Update.de_json(request.get_json(force=True), application.bot)
-        application.process_update(update)
-    return 'ok', 200
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پاسخ به دستور /start در چت خصوصی"""
@@ -105,7 +88,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     """راه‌اندازی ربات"""
-    global application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Command handlers
@@ -115,11 +97,8 @@ def main():
     # Message handler
     application.add_handler(MessageHandler(filters.TEXT, handle_message))
 
-    # تنظیم webhook
-    application.bot.set_webhook(url=f'https://{os.environ.get("RENDER_EXTERNAL_HOSTNAME")}/webhook')
-
     logger.info("Bot is running...")
-    app.run(host='0.0.0.0', port=PORT)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
