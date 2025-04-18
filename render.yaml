@@ -2,7 +2,9 @@ services:
   - type: worker
     name: telegram-gemini-bot
     env: python
-        buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install -r requirements.txt
+      mkdir -p logs
     startCommand: python telegram_gemini_bot_amirrezatube.py
     plan: free
     envVars:
