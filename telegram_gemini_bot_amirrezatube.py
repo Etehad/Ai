@@ -3,7 +3,6 @@ import json
 import logging
 import requests
 import asyncio
-import time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -11,22 +10,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
-    handlers=[
-        logging.FileHandler('logs/bot.log'),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"
+GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-
-# بررسی وجود توکن‌ها
-if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
-    logger.error("توکن‌های مورد نیاز یافت نشدند!")
-    raise ValueError("توکن‌های مورد نیاز یافت نشدند!")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پاسخ به دستور /start در چت خصوصی"""
@@ -105,25 +96,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید."
         )
 
-async def check_bot_status():
-    """بررسی وضعیت ربات"""
-    try:
-        # بررسی اتصال به تلگرام
-        application = Application.builder().token(TELEGRAM_TOKEN).build()
-        bot = await application.bot.get_me()
-        logger.info(f"ربات با موفقیت به تلگرام متصل شد: {bot.username}")
-        return True
-    except Exception as e:
-        logger.error(f"خطا در اتصال به تلگرام: {str(e)}")
-        return False
-
 def main():
     """راه‌اندازی ربات"""
-    # بررسی وضعیت قبل از شروع
-    if not asyncio.run(check_bot_status()):
-        logger.error("ربات نمی‌تواند به تلگرام متصل شود. خروج...")
-        return
-
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Command handlers
@@ -149,7 +123,7 @@ def main():
         except Exception as e:
             logger.error(f"خطا در اجرای ربات: {str(e)}")
             logger.info("تلاش مجدد در 5 ثانیه...")
-            time.sleep(5)
+            asyncio.sleep(5)
 
 if __name__ == '__main__':
     main()
