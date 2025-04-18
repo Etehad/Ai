@@ -38,34 +38,35 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"خطا در دستور help: {str(e)}")
 
-def get_gemini_response(prompt: str) -> str:
-    """دریافت پاسخ از Gemini AI API"""
+import time
+from requests.exceptions import RequestException
+
+def get_gemini_response(prompt: str, retries=3, delay=5) -> str:
     headers = {'Content-Type': 'application/json'}
     data = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
+        "contents": [{"parts": [{"text": prompt}]}]
     }
 
-    try:
-        response = requests.post(
-            f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-            headers=headers,
-            json=data,
-            timeout=30
-        )
-        response.raise_for_status()
-        result = response.json()
+    for attempt in range(retries):
+        try:
+            response = requests.post(
+                f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+                headers=headers,
+                json=data,
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
 
-        if 'candidates' in result and len(result['candidates']) > 0:
-            return result['candidates'][0]['content']['parts'][0]['text']
-        return "متأسفم، نتونستم پاسخ مناسبی پیدا کنم."
-    except requests.exceptions.Timeout:
-        logger.error("Timeout در ارتباط با Gemini API")
-        return "متأسفانه در حال حاضر سرور پاسخگو نیست. لطفاً کمی بعد دوباره تلاش کنید."
-    except Exception as e:
-        logger.error(f"خطا در دریافت پاسخ از Gemini: {str(e)}")
-        return "متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید."
+            if 'candidates' in result and len(result['candidates']) > 0:
+                return result['candidates'][0]['content']['parts'][0]['text']
+            return "متأسفم، نتونستم پاسخ مناسبی پیدا کنم."
+        except RequestException as e:
+            logger.error(f"خطا در تلاش {attempt + 1} برای Gemini API: {str(e)}")
+            if attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            return "متأسفانه در حال حاضر سرور پاسخگو نیست. لطفاً کمی بعد دوباره تلاش کنید."
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -105,21 +106,19 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
 
     # Message handler
-    application.add_handler(MessageHandler(filters.TEXT, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Error handler
     application.add_error_handler(error_handler)
 
     logger.info("Bot is running...")
     
-    # اجرای ربات با مکانیزم‌های بهبود پایداری
-    while True:
-        try:
-            application.run_polling(
-                allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True,
-                close_loop=False
-            )
+    # اجرای ربات
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
+        close_loop=False
+    )
         except Exception as e:
             logger.error(f"خطا در اجرای ربات: {str(e)}")
             logger.info("تلاش مجدد در 5 ثانیه...")
