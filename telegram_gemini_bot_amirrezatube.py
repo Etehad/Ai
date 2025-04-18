@@ -10,14 +10,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler(), logging.FileHandler('logs/bot.log')]
 )
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_TOKEN = "7656731366:AAE8L5_jm4Z8WOzKDqtdehIGgo9yH3rUt2Y"
-GEMINI_API_KEY = "AIzaSyCRuG0Gz7kyVTMKSZZylr8aAB_v5ESj8e0"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پاسخ به دستور /start در چت خصوصی"""
@@ -38,10 +38,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"خطا در دستور help: {str(e)}")
 
-import time
-from requests.exceptions import RequestException
-
 def get_gemini_response(prompt: str, retries=3, delay=5) -> str:
+    """دریافت پاسخ از Gemini AI API"""
     headers = {'Content-Type': 'application/json'}
     data = {
         "contents": [{"parts": [{"text": prompt}]}]
@@ -61,10 +59,10 @@ def get_gemini_response(prompt: str, retries=3, delay=5) -> str:
             if 'candidates' in result and len(result['candidates']) > 0:
                 return result['candidates'][0]['content']['parts'][0]['text']
             return "متأسفم، نتونستم پاسخ مناسبی پیدا کنم."
-        except RequestException as e:
+        except requests.exceptions.RequestException as e:
             logger.error(f"خطا در تلاش {attempt + 1} برای Gemini API: {str(e)}")
             if attempt < retries - 1:
-                time.sleep(delay)
+                asyncio.sleep(delay)
                 continue
             return "متأسفانه در حال حاضر سرور پاسخگو نیست. لطفاً کمی بعد دوباره تلاش کنید."
 
@@ -80,11 +78,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 response = get_gemini_response(prompt)
                 await message.reply_text(response)
         elif chat_type == "private":
-            if text == "/start":
-                await message.reply_text("سلام! لطفاً سوال خود را از هوش مصنوعی بپرسید.")
-            else:
-                response = get_gemini_response(text)
-                await message.reply_text(response)
+            response = get_gemini_response(text)
+            await message.reply_text(response)
     except Exception as e:
         logger.error(f"خطا در پردازش پیام: {str(e)}")
         await message.reply_text("متأسفانه خطایی رخ داده است. لطفاً دوباره تلاش کنید.")
@@ -99,6 +94,10 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     """راه‌اندازی ربات"""
+    if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
+        logger.error("متغیرهای محیطی TELEGRAM_TOKEN یا GEMINI_API_KEY تنظیم نشده‌اند")
+        return
+
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Command handlers
@@ -113,16 +112,11 @@ def main():
 
     logger.info("Bot is running...")
     
-    # اجرای ربات
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=True,
         close_loop=False
     )
-        except Exception as e:
-            logger.error(f"خطا در اجرای ربات: {str(e)}")
-            logger.info("تلاش مجدد در 5 ثانیه...")
-            asyncio.sleep(5)
 
 if __name__ == '__main__':
     main()
